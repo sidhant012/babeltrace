@@ -1652,7 +1652,7 @@ int lttng_live_read(struct lttng_live_ctx *ctx)
 		goto end;
 	}
 
-	td_write = fmt_write->open_trace(NULL, O_RDWR, NULL, NULL);
+	td_write = fmt_write->open_trace(NULL, NULL, NULL, O_RDWR, NULL, NULL);
 	if (!td_write) {
 		fprintf(stderr, "[error] Error opening output trace\n");
 		goto end_free;

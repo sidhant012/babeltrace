@@ -35,6 +35,19 @@
 
 int ctf_text_integer_write(struct bt_stream_pos *ppos, struct bt_definition *definition)
 {
+    // integer type has the _length hidden value to be written to text trace
+    const char * name = rem_(g_quark_to_string(definition->name));
+    
+    int name_len = strlen(name);
+    if (name_len > 7)
+    {
+        const char * subname = name + (name_len - 7);
+        if (strcmp(subname, "_length") == 0)
+        {
+            return 0;
+        }
+    }
+    
 	struct definition_integer *integer_definition =
 		container_of(definition, struct definition_integer, p);
 	const struct declaration_integer *integer_declaration =
@@ -48,11 +61,12 @@ int ctf_text_integer_write(struct bt_stream_pos *ppos, struct bt_definition *def
 		return 0;
 
 	if (pos->field_nr++ != 0)
-		fprintf(pos->fp, ",");
-	fprintf(pos->fp, " ");
-	if (pos->print_names)
-		fprintf(pos->fp, "%s = ",
-			rem_(g_quark_to_string(definition->name)));
+		pos->print_all(pos, ",");
+		// fprintf(pos->fp, ",");
+	// fprintf(pos->fp, " ");
+	// if (pos->print_names)
+	// 	fprintf(pos->fp, "%s = ",
+	// 		rem_(g_quark_to_string(definition->name)));
 
 	if (pos->string
 	    && (integer_declaration->encoding == CTF_STRING_ASCII
@@ -72,11 +86,15 @@ int ctf_text_integer_write(struct bt_stream_pos *ppos, struct bt_definition *def
 	case 0:	/* default */
 	case 10:
 		if (!integer_declaration->signedness) {
-			fprintf(pos->fp, "%" PRIu64,
+			pos->print_all(pos, "%" PRIu64,
 				integer_definition->value._unsigned);
+			// fprintf(pos->fp, "%" PRIu64,
+			// 	integer_definition->value._unsigned);
 		} else {
-			fprintf(pos->fp, "%" PRId64,
+			pos->print_all(pos, "%" PRId64,
 				integer_definition->value._signed);
+			// fprintf(pos->fp, "%" PRId64,
+			// 	integer_definition->value._signed);
 		}
 		break;
 	case 2:

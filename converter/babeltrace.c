@@ -72,6 +72,10 @@ static char *opt_input_format, *opt_output_format;
  */
 static GPtrArray *opt_input_paths;
 static char *opt_output_path;
+//
+static char *opt_table_config_path;
+static char *opt_table_output_path;
+//
 static int opt_stream_intersection;
 
 static struct bt_format *fmt_read;
@@ -108,6 +112,10 @@ enum {
 	OPT_DEBUG_INFO_DIR,
 	OPT_DEBUG_INFO_FULL_PATH,
 	OPT_DEBUG_INFO_TARGET_PREFIX,
+	//
+	OPT_TABLE_CONFIG_PATH,
+	OPT_TABLE_OUTPUT_PATH,
+	//
 };
 
 /*
@@ -138,6 +146,10 @@ static struct poptOption long_options[] = {
 	{ "clock-gmt", 0, POPT_ARG_NONE, NULL, OPT_CLOCK_GMT, NULL, NULL },
 	{ "clock-force-correlate", 0, POPT_ARG_NONE, NULL, OPT_CLOCK_FORCE_CORRELATE, NULL, NULL },
 	{ "stream-intersection", 0, POPT_ARG_NONE, NULL, OPT_STREAM_INTERSECTION, NULL, NULL },
+	//
+	{ "table-config", 'c', POPT_ARG_STRING, NULL, OPT_TABLE_CONFIG_PATH, NULL, NULL },
+	{ "table-output", 't', POPT_ARG_STRING, NULL, OPT_TABLE_OUTPUT_PATH, NULL, NULL },
+	//
 #ifdef ENABLE_DEBUG_INFO
 	{ "debug-info-dir", 0, POPT_ARG_STRING, NULL, OPT_DEBUG_INFO_DIR, NULL, NULL },
 	{ "debug-info-full-path", 0, POPT_ARG_NONE, NULL, OPT_DEBUG_INFO_FULL_PATH, NULL, NULL },
@@ -189,6 +201,10 @@ static void usage(FILE *fp)
 	fprintf(fp, "      --clock-force-correlate    Assume that clocks are inherently correlated\n");
 	fprintf(fp, "                                 across traces.\n");
 	fprintf(fp, "      --stream-intersection      Only print events when all streams are active.\n");
+	//
+	fprintf(fp, "  -c, --table-config INPUT       Input table config path\n");
+	fprintf(fp, "  -t, --table-output OUTPUT      Output table path\n");
+	//
 #ifdef ENABLE_DEBUG_INFO
 	fprintf(fp, "      --debug-info-dir           Directory in which to look for debugging information\n");
 	fprintf(fp, "                                 files. (default: /usr/lib/debug/)\n");
@@ -434,6 +450,22 @@ static int parse_options(int argc, char **argv)
 				goto end;
 			}
 			break;
+		//
+		case OPT_TABLE_CONFIG_PATH:
+			opt_table_config_path = (char *) poptGetOptArg(pc);
+			if (!opt_table_config_path) {
+				ret = -EINVAL;
+				goto end;
+			}
+			break;
+		case OPT_TABLE_OUTPUT_PATH:
+			opt_table_output_path = (char *) poptGetOptArg(pc);
+			if (!opt_table_output_path) {
+				ret = -EINVAL;
+				goto end;
+			}
+			break;
+		//
 		default:
 			ret = -EINVAL;
 			goto end;
@@ -798,7 +830,7 @@ int main(int argc, char **argv)
 		goto error_td_read;
 	}
 
-	td_write = fmt_write->open_trace(opt_output_path, O_RDWR, NULL, NULL);
+	td_write = fmt_write->open_trace(opt_output_path, opt_table_config_path, opt_table_output_path, O_RDWR, NULL, NULL);
 	if (!td_write) {
 		fprintf(stderr, "Error opening trace \"%s\" for writing.\n\n",
 			opt_output_path ? : "<none>");
@@ -853,6 +885,10 @@ end:
 	free(opt_input_format);
 	free(opt_output_format);
 	free(opt_output_path);
+	//
+	free(opt_table_config_path);
+	free(opt_table_output_path);
+	//
 	free(opt_debug_info_dir);
 	free(opt_debug_info_target_prefix);
 	g_ptr_array_free(opt_input_paths, TRUE);

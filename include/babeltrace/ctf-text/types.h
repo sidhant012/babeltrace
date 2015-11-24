@@ -32,6 +32,7 @@
 #include <stdint.h>
 #include <unistd.h>
 #include <glib.h>
+#include <stdarg.h>
 #include <babeltrace/babeltrace-internal.h>
 #include <babeltrace/types.h>
 #include <babeltrace/format.h>
@@ -44,6 +45,13 @@ struct ctf_text_stream_pos {
 	struct bt_stream_pos parent;
 	struct bt_trace_descriptor trace_descriptor;
 	FILE *fp;		/* File pointer. NULL if unset. */
+	//
+	FILE *table_fp; /* File pointer for table. NULL if unset. */
+	void (*print_all)(struct ctf_text_stream_pos *pos, const char * text, ...);
+	GHashTable *table_whitelist;
+	bool is_this_event_whitelisted; /* this is the only struct pass down the call stack */
+	bool (*is_event_whitelist)(GHashTable *hashtable, const char *event);
+	//
 	int depth;
 	int dummy;		/* disable output */
 	int print_names;	/* print field names */
@@ -52,6 +60,24 @@ struct ctf_text_stream_pos {
 	uint64_t last_cycles_timestamp;	/* to print delta */
 	GString *string;	/* Current string */
 };
+
+//
+static inline void print_all(struct ctf_text_stream_pos *pos, const char * text, ...) {
+	va_list argptr;
+	va_start(argptr, text);
+	vfprintf(pos->fp, text, argptr);
+	va_end(argptr);
+	if (pos->table_fp && pos->is_this_event_whitelisted) {
+		va_start(argptr, text);
+		vfprintf(pos->table_fp, text, argptr);
+		va_end(argptr);
+	}
+}
+
+static inline bool is_event_whitelist(GHashTable *hashtable, const char *task_event_name) {
+	return g_hash_table_lookup_extended(hashtable, task_event_name, NULL, NULL);
+}
+//
 
 static inline
 struct ctf_text_stream_pos *ctf_text_pos(struct bt_stream_pos *pos)

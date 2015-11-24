@@ -31,6 +31,40 @@
 #include <limits.h>		/* C99 limits */
 #include <string.h>
 
+void print_replace_newline(char * str, struct ctf_text_stream_pos *pos)
+{
+    char * saveptr = str;
+    char * token;
+    bool first = true;
+    
+    while (*saveptr != '\0' && *(saveptr + 1) != '\0')
+    {
+        if (saveptr[0] == '\r' && saveptr[1] == '\n')
+        {
+            saveptr[1] = '\t';
+            saveptr += 2;
+        }
+        else
+        {
+            saveptr += 1;
+        }
+    }
+    
+    saveptr = str;
+    
+    while ((token = strtok_r(saveptr, "\n", &saveptr)) != NULL)
+    {
+        if (!first)
+        {
+            pos->print_all(pos, "%s", "\r\t");
+            // fprintf(pos->fp, "%s", "\r\t");
+        }
+        first = false;
+        pos->print_all(pos, "%s", token);
+        // fprintf(pos->fp, "%s", token);
+    }
+}
+
 int ctf_text_string_write(struct bt_stream_pos *ppos,
 			  struct bt_definition *definition)
 {
@@ -47,12 +81,38 @@ int ctf_text_string_write(struct bt_stream_pos *ppos,
 		return 0;
 
 	if (pos->field_nr++ != 0)
-		fprintf(pos->fp, ",");
-	fprintf(pos->fp, " ");
-	if (pos->print_names)
-		fprintf(pos->fp, "%s = ",
-			rem_(g_quark_to_string(definition->name)));
-
-	fprintf(pos->fp, "\"%s\"", string_definition->value);
+    {
+        if (strcmp(rem_(g_quark_to_string(definition->name)), "eventNameField") == 0)
+        {
+            pos->print_all(pos, ".");
+            // fprintf(pos->fp, ".");
+        }
+        else if (strcmp(rem_(g_quark_to_string(definition->name)), "idField") == 0)
+        {
+            if (strcmp(string_definition->value, "") != 0)
+            {
+                pos->print_all(pos, "@");
+                // fprintf(pos->fp, "@");
+            }
+        }
+        else
+        {
+            pos->print_all(pos, ",");
+            // fprintf(pos->fp, ",");
+        }
+    }
+	// fprintf(pos->fp, " ");
+    
+	// if (pos->print_names)
+	// 	fprintf(pos->fp, "%s = ",
+	// 		rem_(g_quark_to_string(definition->name)));
+    // fprintf(pos->fp, "\"");
+    if (strcmp(string_definition->value, "") != 0)
+    {
+        print_replace_newline(string_definition->value, pos);
+    }
+    
+    // fprintf(pos->fp, "\"");
+	// fprintf(pos->fp, "\"%s\"", string_definition->value);
 	return 0;
 }

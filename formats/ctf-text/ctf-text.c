@@ -89,7 +89,12 @@ enum bt_loglevel {
 };
 
 static
-struct bt_trace_descriptor *ctf_text_open_trace(const char *path, int flags,
+struct bt_trace_descriptor *ctf_text_open_trace(const char *path,
+		//
+		const char *table_config_path,
+		const char *table_path,
+		//
+		int flags,
 		void (*packet_seek)(struct bt_stream_pos *pos, size_t index,
 			int whence), FILE *metadata_fp);
 static
@@ -267,26 +272,78 @@ int ctf_text_write_event(struct bt_stream_pos *ppos, struct ctf_stream_definitio
 		return -EINVAL;
 	}
 
+	//
+	if (pos->table_fp) {
+		struct bt_definition *definition = &event->event_fields->p;
+		struct definition_struct *struct_definition = 
+			container_of(definition, struct definition_struct, p);
+		char task_event_name[200];
+		bool is_task_name_found = false;
+		bool is_event_name_found = false;
+		unsigned long i;
+		for (i = 0; i < struct_definition->fields->len; i++) {
+			struct bt_definition *field =
+				g_ptr_array_index(struct_definition->fields, i);
+			
+			if (strcmp(rem_(g_quark_to_string(field->name)), "taskNameField") == 0) {
+				struct definition_string *string_definition =
+					container_of(field, struct definition_string, p);
+				strcpy(task_event_name, string_definition->value);
+				strcat(task_event_name, ".");
+				is_task_name_found = true;
+			}
+			else if (strcmp(rem_(g_quark_to_string(field->name)), "eventNameField") == 0) {
+				struct definition_string *string_definition =
+					container_of(field, struct definition_string, p);
+				strcat(task_event_name, string_definition->value);
+				is_event_name_found = true;
+			}
+			if (is_task_name_found && is_event_name_found) {
+				break;
+			}
+		}
+		if (pos->is_event_whitelist(pos->table_whitelist, task_event_name)) {
+			pos->is_this_event_whitelisted = true;
+		}
+		else {
+			pos->is_this_event_whitelisted = false;
+		}
+	}
+	//
+
 	handle_debug_info_event(stream_class, event);
 
 	if (stream->has_timestamp) {
 		set_field_names_print(pos, ITEM_HEADER);
 		if (pos->print_names)
+			// pos->print_all(pos, "timestamp = ");
 			fprintf(pos->fp, "timestamp = ");
-		else
-			fprintf(pos->fp, "[");
+		// else
+		// 	fprintf(pos->fp, "[");
 		if (opt_clock_cycles) {
 			ctf_print_timestamp(pos->fp, stream, stream->cycles_timestamp);
+			//
+			if (pos->is_this_event_whitelisted) {
+				ctf_print_timestamp(pos->table_fp, stream, stream->cycles_timestamp);
+			}
+			//
 		} else {
 			ctf_print_timestamp(pos->fp, stream, stream->real_timestamp);
+			//
+			if (pos->is_this_event_whitelisted) {
+				ctf_print_timestamp(pos->table_fp, stream, stream->real_timestamp);
+			}
+			//
 		}
-		if (!pos->print_names)
-			fprintf(pos->fp, "]");
+		// if (!pos->print_names)
+		// 	fprintf(pos->fp, "]");
 
 		if (pos->print_names)
-			fprintf(pos->fp, ", ");
+			pos->print_all(pos, ", ");
+			// fprintf(pos->fp, ", ");
 		else
-			fprintf(pos->fp, " ");
+			pos->print_all(pos, ",");
+			// fprintf(pos->fp, ",");
 	}
 	if (opt_delta_field && stream->has_timestamp) {
 		uint64_t delta, delta_sec, delta_nsec;
@@ -381,11 +438,42 @@ int ctf_text_write_event(struct bt_stream_pos *ppos, struct ctf_stream_definitio
 		} else if (dom_print) {
 			fprintf(pos->fp, ":");
 		}
-		fprintf(pos->fp, "%s (%d)",
-			print_loglevel(event_class->loglevel),
-			event_class->loglevel);
+        char * loglevel_str;
+        switch (event_class->loglevel)
+        {
+            case 1:
+                loglevel_str = "Silent";
+                break;
+            case 2:
+                loglevel_str = "Critical";
+                break;
+            case 3:
+                loglevel_str = "Error";
+                break;
+            case 4:
+                loglevel_str = "Warning";
+                break;
+            case 6:
+                loglevel_str = "Info";
+                break;
+            case 7:
+                loglevel_str = "Noise";
+                break;
+            case 13:
+                loglevel_str = "All";
+                break;
+            default:
+                loglevel_str = "Unknown";
+                break;
+        }
+        pos->print_all(pos, "%s,", loglevel_str);
+        // fprintf(pos->fp, "%s,", loglevel_str);
+		// fprintf(pos->fp, "%s (%d)",
+		// 	print_loglevel(event_class->loglevel),
+		// 	event_class->loglevel);
 		if (pos->print_names)
-			fprintf(pos->fp, ", ");
+			pos->print_all(pos, ", ");
+			// fprintf(pos->fp, ", ");
 		dom_print = 1;
 	}
 	if ((opt_emf_field || opt_all_fields) && event_class->model_emf_uri) {
@@ -437,32 +525,32 @@ int ctf_text_write_event(struct bt_stream_pos *ppos, struct ctf_stream_definitio
 			dom_print = 1;
 		}
 	}
-	if (dom_print && !pos->print_names)
-		fprintf(pos->fp, " ");
-	set_field_names_print(pos, ITEM_HEADER);
-	if (pos->print_names)
-		fprintf(pos->fp, "name = ");
-	fprintf(pos->fp, "%s", g_quark_to_string(event_class->name));
-	if (pos->print_names)
-		pos->field_nr++;
-	else
-		fprintf(pos->fp, ":");
+	// if (dom_print && !pos->print_names)
+	// 	fprintf(pos->fp, " ");
+	// set_field_names_print(pos, ITEM_HEADER);
+	// if (pos->print_names)
+	// 	fprintf(pos->fp, "name = ");
+	// fprintf(pos->fp, "%s", g_quark_to_string(event_class->name));
+	// if (pos->print_names)
+	// 	pos->field_nr++;
+	// else
+	// 	fprintf(pos->fp, ":");
 
 	/* print cpuid field from packet context */
-	if (stream->stream_packet_context) {
-		if (pos->field_nr++ != 0)
-			fprintf(pos->fp, ",");
-		set_field_names_print(pos, ITEM_SCOPE);
-		if (pos->print_names)
-			fprintf(pos->fp, " stream.packet.context =");
-		field_nr_saved = pos->field_nr;
-		pos->field_nr = 0;
-		set_field_names_print(pos, ITEM_CONTEXT);
-		ret = generic_rw(ppos, &stream->stream_packet_context->p);
-		if (ret)
-			goto error;
-		pos->field_nr = field_nr_saved;
-	}
+	// if (stream->stream_packet_context) {
+	// 	if (pos->field_nr++ != 0)
+	// 		fprintf(pos->fp, ",");
+	// 	set_field_names_print(pos, ITEM_SCOPE);
+	// 	if (pos->print_names)
+	// 		fprintf(pos->fp, " stream.packet.context =");
+	// 	field_nr_saved = pos->field_nr;
+	// 	pos->field_nr = 0;
+	// 	set_field_names_print(pos, ITEM_CONTEXT);
+	// 	ret = generic_rw(ppos, &stream->stream_packet_context->p);
+	// 	if (ret)
+	// 		goto error;
+	// 	pos->field_nr = field_nr_saved;
+	// }
 
 	/* Only show the event header in verbose mode */
 	if (babeltrace_verbose && stream->stream_event_header) {
@@ -515,7 +603,8 @@ int ctf_text_write_event(struct bt_stream_pos *ppos, struct ctf_stream_definitio
 	/* Read and print event payload */
 	if (event->event_fields) {
 		if (pos->field_nr++ != 0)
-			fprintf(pos->fp, ",");
+			pos->print_all(pos, ",");
+			// fprintf(pos->fp, ",");
 		set_field_names_print(pos, ITEM_SCOPE);
 		if (pos->print_names)
 			fprintf(pos->fp, " event.fields =");
@@ -528,7 +617,8 @@ int ctf_text_write_event(struct bt_stream_pos *ppos, struct ctf_stream_definitio
 		pos->field_nr = field_nr_saved;
 	}
 	/* newline */
-	fprintf(pos->fp, "\n");
+	pos->print_all(pos, "\r\n");
+	// fprintf(pos->fp, "\r\n");
 	pos->field_nr = 0;
 
 	return 0;
@@ -538,8 +628,55 @@ error:
 	return ret;
 }
 
+//
+static int read_table_config(const char *table_config_path, GHashTable *table_whitelist) {
+	FILE * config = fopen(table_config_path, "r");
+	if (config == NULL) {
+		fprintf(stderr, "Table config file not found.\n");
+		return -1;
+	}
+	char *line = NULL;
+	size_t len = 0;
+	ssize_t read;
+	while ((read = getline(&line, &len, config)) != -1) {
+		char *token = strtok(line, ":");
+		if (token) {
+			char *token_copy = (char *) malloc(strlen(token) + 1);
+			strcpy(token_copy, token);
+			g_hash_table_insert(table_whitelist, token_copy, NULL);
+		}
+		else {
+			fprintf(stderr, "Error parsing table configs, skipping.\n");
+		}
+		free(line);
+		line = NULL;
+		len = 0;
+	}
+	free(line);
+	line = NULL;
+	len = 0;
+	if (fclose(config)) {
+		perror("Error on fclose");
+		return -1;
+	}
+	return 0;
+}
+
+// testing use
+static void printKeyValue(gpointer key, gpointer value, gpointer userData) {
+	char *realKey = (char *)key;
+	char *realValue = (char *)value;
+	printf("%s => %s\n", realKey, realValue);
+}
+//
+
 static
-struct bt_trace_descriptor *ctf_text_open_trace(const char *path, int flags,
+struct bt_trace_descriptor *ctf_text_open_trace(const char *path,
+		//
+		const char *table_config_path,
+		const char *table_path,
+		//
+		int flags,
 		void (*packet_seek)(struct bt_stream_pos *pos, size_t index,
 			int whence), FILE *metadata_fp)
 {
@@ -563,6 +700,21 @@ struct bt_trace_descriptor *ctf_text_open_trace(const char *path, int flags,
 		if (!fp)
 			goto error;
 		pos->fp = fp;
+		//
+		pos->table_whitelist = NULL;
+		pos->table_fp = NULL;
+		pos->print_all = print_all;
+		pos->is_this_event_whitelisted = false;
+		if (table_config_path) {
+			pos->table_whitelist = g_hash_table_new_full(g_str_hash, g_str_equal, free, NULL);
+			int err = read_table_config(table_config_path, pos->table_whitelist);
+			if (err)
+				goto error;
+			pos->table_fp = fopen(table_path, "w");
+			pos->is_event_whitelist = is_event_whitelist;
+			// g_hash_table_foreach(pos->table_whitelist, printKeyValue, NULL);
+		}
+		//
 		pos->parent.rw_table = write_dispatch_table;
 		pos->parent.event_cb = ctf_text_write_event;
 		pos->parent.trace = &pos->trace_descriptor;
@@ -596,6 +748,18 @@ int ctf_text_close_trace(struct bt_trace_descriptor *td)
 			return -1;
 		}
 	}
+	//
+	if (pos->table_fp) {
+		ret = fclose(pos->table_fp);
+		if (ret) {
+			perror("Error on fclose");
+			return -1;
+		}
+	}
+	if (pos->table_whitelist) {
+		g_hash_table_destroy(pos->table_whitelist);
+	}
+	//
 	g_free(pos);
 	return 0;
 }

@@ -93,7 +93,12 @@ char *opt_debug_info_target_prefix;
 int babeltrace_ctf_console_output;
 
 static
-struct bt_trace_descriptor *ctf_open_trace(const char *path, int flags,
+struct bt_trace_descriptor *ctf_open_trace(const char *path,
+		//
+		const char *table_config_path,
+		const char *table_path,
+		//
+		int flags,
 		void (*packet_seek)(struct bt_stream_pos *pos, size_t index,
 			int whence),
 		FILE *metadata_fp);
@@ -367,8 +372,10 @@ void ctf_print_timestamp_real(FILE *fp,
 			fprintf(fp, "%s", timestr);
 		}
 		/* Print time in HH:MM:SS.ns */
-		fprintf(fp, "%02d:%02d:%02d.%09" PRIu64,
-			tm.tm_hour, tm.tm_min, tm.tm_sec, ts_nsec);
+		// fprintf(fp, "%02d:%02d:%02d.%09" PRIu64,
+		// 	tm.tm_hour, tm.tm_min, tm.tm_sec, ts_nsec);
+		fprintf(fp, "%02d:%02d:%02d.%03" PRIu64,
+			tm.tm_hour, tm.tm_min, tm.tm_sec, ts_nsec / 1000000);
 		goto end;
 	}
 seconds:
@@ -2385,7 +2392,12 @@ error:
  * since the index creation read it entirely.
  */
 static
-struct bt_trace_descriptor *ctf_open_trace(const char *path, int flags,
+struct bt_trace_descriptor *ctf_open_trace(const char *path,
+		//
+		const char *table_config_path,
+		const char *table_path,
+		//
+		int flags,
 		void (*packet_seek)(struct bt_stream_pos *pos, size_t index,
 			int whence), FILE *metadata_fp)
 {

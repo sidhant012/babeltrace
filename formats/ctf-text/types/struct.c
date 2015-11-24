@@ -42,11 +42,11 @@ int ctf_text_struct_write(struct bt_stream_pos *ppos, struct bt_definition *defi
 		if (pos->depth >= 0) {
 			if (pos->field_nr++ != 0)
 				fprintf(pos->fp, ",");
-			fprintf(pos->fp, " ");
+			// fprintf(pos->fp, " ");
 			if (pos->print_names && definition->name != 0)
 				fprintf(pos->fp, "%s = ",
 					rem_(g_quark_to_string(definition->name)));
-			fprintf(pos->fp, "{");
+			// fprintf(pos->fp, "{");
 		}
 		pos->depth++;
 	}
@@ -56,7 +56,7 @@ int ctf_text_struct_write(struct bt_stream_pos *ppos, struct bt_definition *defi
 	if (!pos->dummy) {
 		pos->depth--;
 		if (pos->depth >= 0) {
-			fprintf(pos->fp, " }");
+			// fprintf(pos->fp, " }");
 		}
 	}
 	pos->field_nr = field_nr_saved;

@@ -59,7 +59,12 @@ struct bt_mmap_stream_list {
 struct bt_format {
 	bt_intern_str name;
 
-	struct bt_trace_descriptor *(*open_trace)(const char *path, int flags,
+	struct bt_trace_descriptor *(*open_trace)(const char *path,
+			//
+			const char *table_config_path,
+			const char *table_path,
+			//
+			int flags,
 			void (*packet_seek)(struct bt_stream_pos *pos,
 				size_t index, int whence),
 			FILE *metadata_fp);

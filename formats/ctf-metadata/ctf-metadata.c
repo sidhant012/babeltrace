@@ -42,7 +42,12 @@
 #include <stdlib.h>
 
 static
-struct bt_trace_descriptor *ctf_metadata_open_trace(const char *path, int flags,
+struct bt_trace_descriptor *ctf_metadata_open_trace(const char *path,
+		//
+		const char *table_config_path,
+		const char *table_path,
+		//
+		int flags,
 		void (*packet_seek)(struct bt_stream_pos *pos, size_t index,
 			int whence), FILE *metadata_fp);
 static
@@ -74,7 +79,12 @@ int ctf_metadata_trace_pre_handler(struct bt_stream_pos *ppos,
 }
 
 static
-struct bt_trace_descriptor *ctf_metadata_open_trace(const char *path, int flags,
+struct bt_trace_descriptor *ctf_metadata_open_trace(const char *path,
+		//
+		const char *table_config_path,
+		const char *table_path,
+		//
+		int flags,
 		void (*packet_seek)(struct bt_stream_pos *pos, size_t index,
 			int whence), FILE *metadata_fp)
 {
