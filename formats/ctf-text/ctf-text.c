@@ -273,11 +273,12 @@ int ctf_text_write_event(struct bt_stream_pos *ppos, struct ctf_stream_definitio
 	}
 
 	//
+	// Check if this type of trace is in the table whitelist
 	if (pos->table_fp) {
 		struct bt_definition *definition = &event->event_fields->p;
 		struct definition_struct *struct_definition = 
 			container_of(definition, struct definition_struct, p);
-		char task_event_name[200];
+		pos->task_event_name[0] = 0;
 		bool is_task_name_found = false;
 		bool is_event_name_found = false;
 		unsigned long i;
@@ -288,21 +289,39 @@ int ctf_text_write_event(struct bt_stream_pos *ppos, struct ctf_stream_definitio
 			if (strcmp(rem_(g_quark_to_string(field->name)), "taskNameField") == 0) {
 				struct definition_string *string_definition =
 					container_of(field, struct definition_string, p);
-				strcpy(task_event_name, string_definition->value);
-				strcat(task_event_name, ".");
+				while (strlen(string_definition->value) + 2 > pos->task_event_name_size) {
+					pos->task_event_name_size *= 2;
+					char * temp = realloc(pos->task_event_name, pos->task_event_name_size);
+					if (temp == NULL) {
+						fprintf(stderr, "ctf_text_write_event() realloc() returned null.\n");
+						return -EINVAL;
+					}
+					pos->task_event_name = temp;
+				}
+				strcpy(pos->task_event_name, string_definition->value);
+				strcat(pos->task_event_name, ".");
 				is_task_name_found = true;
 			}
 			else if (strcmp(rem_(g_quark_to_string(field->name)), "eventNameField") == 0) {
 				struct definition_string *string_definition =
 					container_of(field, struct definition_string, p);
-				strcat(task_event_name, string_definition->value);
+				while (strlen(string_definition->value) + 1 + strlen(pos->task_event_name) > pos->task_event_name_size) {
+					pos->task_event_name_size *= 2;
+					char * temp = realloc(pos->task_event_name, pos->task_event_name_size);
+					if (temp == NULL) {
+						fprintf(stderr, "ctf_text_write_event() realloc() returned null.\n");
+						return -EINVAL;
+					}
+					pos->task_event_name = temp;
+				}
+				strcat(pos->task_event_name, string_definition->value);
 				is_event_name_found = true;
 			}
 			if (is_task_name_found && is_event_name_found) {
 				break;
 			}
 		}
-		if (pos->is_event_whitelist(pos->table_whitelist, task_event_name)) {
+		if (pos->is_event_whitelist(pos->table_whitelist, pos->task_event_name)) {
 			pos->is_this_event_whitelisted = true;
 		}
 		else {
@@ -713,6 +732,13 @@ struct bt_trace_descriptor *ctf_text_open_trace(const char *path,
 			pos->table_fp = fopen(table_path, "w");
 			pos->is_event_whitelist = is_event_whitelist;
 			// g_hash_table_foreach(pos->table_whitelist, printKeyValue, NULL);
+			pos->task_event_name_size = 200;
+			pos->task_event_name = malloc(sizeof(char) * pos->task_event_name_size);// allocate more if needed later
+			if (pos->task_event_name == NULL) {
+				fprintf(stderr, "ctf_text_open_trace() malloc() returned null.\n");
+				goto error;
+			}
+			pos->task_event_name[0] = 0;
 		}
 		//
 		pos->parent.rw_table = write_dispatch_table;
@@ -758,6 +784,11 @@ int ctf_text_close_trace(struct bt_trace_descriptor *td)
 	}
 	if (pos->table_whitelist) {
 		g_hash_table_destroy(pos->table_whitelist);
+	}
+	if (pos->task_event_name_size > 0) {
+		free(pos->task_event_name);
+		pos->task_event_name = 0;
+		pos->task_event_name_size = 0;
 	}
 	//
 	g_free(pos);

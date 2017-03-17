@@ -51,6 +51,8 @@ struct ctf_text_stream_pos {
 	GHashTable *table_whitelist;
 	bool is_this_event_whitelisted; /* this is the only struct pass down the call stack */
 	bool (*is_event_whitelist)(GHashTable *hashtable, const char *event);
+	char * task_event_name; /* task_name and event_name concat */
+	int task_event_name_size; /* current size of the task_event_name field */
 	//
 	int depth;
 	int dummy;		/* disable output */
