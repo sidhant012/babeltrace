@@ -256,8 +256,8 @@ static int find_max_timestamp_ctf_file_stream(struct ctf_file_stream *cfs,
 		/* Error */
 		if (ret > 0)
 			goto end;
-		else if (ret < 0)
-			return 12;
+		else if (ret != EOF)
+			continue;
 		//assert(ret == EOF); -- Do not want to assert here as it is causing DCA to crash when corrupted data that is why else if is used
 		if (count)
 			break;
